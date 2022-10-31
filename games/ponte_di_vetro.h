@@ -24,6 +24,6 @@
 
 void print_turn_of(Player *player);
 
-Player *play_ponte_di_vetro(Player *players);
+Player *play_ponte_di_vetro(Group group);
 
 #endif //FINAL_PONTE_DI_VETRO_H

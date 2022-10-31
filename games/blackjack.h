@@ -73,6 +73,6 @@ typedef struct
     int     position;
 } DeckOfCards;
 
-Player* play_blackjack(Player *players);
+Player* play_blackjack(Group group);
 
 #endif //FINAL_BLACKJACK_H

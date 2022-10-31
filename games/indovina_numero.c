@@ -63,11 +63,10 @@ void print_guess(Player *player, int guess, int toGuess)
 
 /**
  * Gioca a indovina il numero.
- * @param players   I player partecipanti.
- * @param size      Il numero di player partecipanti.
+ * @param group     Il gruppo di players partecipanti.
  * @return          Il player vincitore del match.
  */
-Player *play_indovina_numero(Player *players, int size)
+Player *play_indovina_numero(Group group, int size)
 {
     /*
      * i, j             -> contatori.
@@ -91,11 +90,12 @@ Player *play_indovina_numero(Player *players, int size)
     Player *playersPlaying = MALLOC_ARRAY(Player, size); CRASH_IF_NULL(playersPlaying)
 
     Boolean gameEnded = false;
+    Boolean found;
 
     /* Inserisce ogni id in un array che verra' ordinato in modo crescente. */
     for (i = 0; i < size; ++i)
     {
-        idsSort[i] = players[i].identifier;
+        idsSort[i] = group.players[i].identifier;
     }
 
     /* Ordina l'array che verra' utilizzato per creare l'ordine di gioco. */
@@ -104,16 +104,17 @@ Player *play_indovina_numero(Player *players, int size)
     /* Basandosi sull'array d'IDs, costruisce l'array dei giocatori ordinato per IDs. */
     for (i = 0; i < size; ++i)
     {
-        for (j = 0; j < size; ++j)
+        found = false;
+
+        for (j = 0; j < size && !found; ++j)
         {
-            if (idsSort[i] == players[j].identifier)
+            if (idsSort[i] == group.players[j].identifier)
             {
-                playersPlaying[i] = players[j];
+                playersPlaying[i] = group.players[j];
+                found = true;
             }
         }
     }
-
-    numToGuess = 10; // TODO CAMBIA
 
     do
     {
@@ -141,9 +142,9 @@ Player *play_indovina_numero(Player *players, int size)
     /* Imposta il corretto vincitore usando la referenza dell'array di players principale. */
     for (i = 0; i < size; ++i)
     {
-        if (players[i].identifier == winner->identifier)
+        if (group.players[i].identifier == winner->identifier)
         {
-            winner = &players[i];
+            winner = &group.players[i];
             i = size;
         }
     }

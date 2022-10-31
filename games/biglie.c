@@ -79,10 +79,10 @@ int ask_marbles_amount(Player *player, Boolean isHuman, int marbles)
 
 /**
  * Gioca a biglie.
- * @param players   I players partecipanti.
+ * @param group     Il gruppo di players partecipanti.
  * @return          Il player vincitore del match.
  */
-Player *play_biglie(Player *players)
+Player *play_biglie(Group group)
 {
     /*
      * marblesPlayer1, marblesPlayer2   -> biglie dei players.
@@ -103,8 +103,8 @@ Player *play_biglie(Player *players)
     int betPlayer1, betPlayer2;
     int marblesBounty;
 
-    Player *player1 = &players[0];
-    Player *player2 = &players[1];
+    Player *player1 = &group.players[0];
+    Player *player2 = &group.players[1];
     Player *winner;
 
     PredictValue predictPlayer1, predictPlayer2;

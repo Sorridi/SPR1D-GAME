@@ -30,7 +30,7 @@ int ask_total_players()
  * @param currentSize   Il numero corrente di partecipanti.
  * @return              Il nuovo numero di partecipanti.
  */
-int add_concorrenti(Player **players, int currentSize)
+int add_concorrenti(Game *game)
 {
     /*
      * i        -> contatore.
@@ -43,10 +43,10 @@ int add_concorrenti(Player **players, int currentSize)
     /* Inserisce tutti i bots. */
     for (i = 0; i < total; ++i)
     {
-        insert_player(players, &currentSize, NULL, true);
+        insert_player(game, NULL, true, true);
     }
 
-    return currentSize;
+    return game->status.totPlayers;
 }
 
 /**
@@ -76,54 +76,39 @@ int find_sizes(int input)
 
 /**
  * Chiede quanti bots inserire e esegue la fase di scrematura.
- * @param profiles          I profili dei players.
- * @param numProfiles       Il numero di profili dei players.
- * @param players           I players inseriti manualmente.
- * @param numPlayers        Il quantitativo di players.
- * @param startSize         La grandezza iniziale.
- * @param statuses          Gli statuses di ogni player.
- * @return                  I player vincitori della scrematura.
+ * @param profiles Il gioco in corso.
  */
-void play_scrematura(Player **players, int *numPlayers, int *startSize, GameStatus *gameStatus)
+void play_scrematura(Game *game)
 {
     /*
      * i, counter   -> contatore.
      * added        -> il numero di player aggiunti man mano.
      * length       -> il numero di player per ogni gruppo.
      * competitors  -> il numero totale di competitori, mirror di "*size".
-     * numGroups    -> il numero di gruppi da creare e il numero di player rimanenti dopo la scrematura.
      * shuffledIds  -> gli IDs casualmente ordinati.
+     * numGroups    -> il numero di gruppi da creare e il numero di player rimanenti dopo la scrematura.
      * groupSizes   -> indica la quantita' di player che ci sono in ogni gruppo.
-     * winnerIDs    -> la lista degli IDs dei player vincenti.
      *
      * groups       -> i gruppi di player che giocheranno indovina il numero.
      * winners      -> i vincitori del gioco indovina il numero.
      */
     int i;
+    int counter         = 0;
     int added           = 0;
     int length          = 0;
-    int counter         = 0;
-    int competitors     = add_concorrenti(players, *numPlayers);
+    int competitors     = add_concorrenti(game);
     int numGroups       = find_sizes(competitors);
-    int *shuffledIds    = shuffle_players(competitors);
-    int **statuses      = &gameStatus->playerStatuses;
     int *groupSizes     = MALLOC_ARRAY(int, numGroups); CRASH_IF_NULL(groupSizes)
-    int *winnerIDs      = MALLOC_ARRAY(int, numGroups); CRASH_IF_NULL(winnerIDs)
+    int *shuffledIds;
 
-    Player **groups     = MALLOC_ARRAY(Player *, numGroups); CRASH_IF_NULL(groups)
-    Player *winners     = NULL;
+    Group *groups = MALLOC_ARRAY(Group, numGroups); CRASH_IF_NULL(groups)
 
-    // Aggiorna il numero di players iniziali.
-    *startSize = competitors;
+    /* Inizializza i dati. */
+    update_totals(game, STARTUP);
+    update_totals(game, PLAYER_STATUSES);
 
-    // Aggiorna il numero di player che giocheranno ai prossimi giochi.
-    *numPlayers = numGroups;
-
-    /*
-     * Dato che ora si sa' il numero di partecipanti, crea l'array di statuses, che indica se un player e'
-     * stato eliminato o meno, in base all'index.
-     */
-    *statuses = REALLOC_ARRAY(int, *statuses, competitors); CRASH_IF_NULL(*statuses)
+    // Mischia i players, in modo da creare i gruppi casuali.
+    shuffledIds = shuffle_players(game);
 
     /*
      * Trova la grandezza di ogni gruppo.
@@ -143,25 +128,18 @@ void play_scrematura(Player **players, int *numPlayers, int *startSize, GameStat
     /* Genera i gruppi. */
     for (i = 0; i < numGroups; ++i)
     {
-        groups[i] = gen_group(*players, groupSizes[i], shuffledIds, &counter);
+        groups[i] = gen_group(game->players, groupSizes[i], shuffledIds, &counter);
     }
 
-    // todo stats pre and post
+    play_game(INDOVINA_NUMERO, groups, numGroups, 0, groupSizes, game);
 
-    /* Gioca a indovina numero. */
-    winners = play_game(INDOVINA_NUMERO, NULL, groups, numGroups, 0, groupSizes);
+    // Aggiorna i dati.
+    update_totals(game, PLAYER_STATUSES);
 
-    print_winners(winners, numGroups);
-
-    /* Aggiorna l'array di statuses impostando i player vivi ad: ALIVE. */
-    update_player_statuses(winners, numGroups, *statuses, competitors);
+    print_winners(game);
 
     /* Libera la memoria. */
-    FREE_MATRIX(i, numGroups, groups)
+    free(groups);
     free(groupSizes);
-    free(winnerIDs);
     free(shuffledIds);
-    free(*players);
-
-    *players = winners;
 }

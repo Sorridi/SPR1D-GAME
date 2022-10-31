@@ -16,6 +16,6 @@ typedef enum
     CARTA, FORBICI, SASSO
 } Symbols;
 
-Player *play_morra_cinese(Player *players);
+Player *play_morra_cinese(Group group);
 
 #endif //FINAL_MORRA_CINESE_H

@@ -90,10 +90,10 @@ void print_player_prediction(Player *player, PredictValue predictValue)
 
 /**
  * Gioca a pari o dispari.
- * @param players   I players partecipanti.
+ * @param group     Il gruppo di players partecipanti.
  * @return          Il player vincitore del match.
  */
-Player* play_pari_o_dispari(Player *players)
+Player* play_pari_o_dispari(Group group)
 {
     /*
      * player1, player2                 -> players partecipanti.
@@ -107,8 +107,8 @@ Player* play_pari_o_dispari(Player *players)
      *
      * isP1Human, isP2Human             -> indicano se i players sono umani.
      */
-    Player *player1 = &players[0];
-    Player *player2 = &players[1];
+    Player *player1 = &group.players[0];
+    Player *player2 = &group.players[1];
     Player *winner;
 
     int handPlayer1, handPlayer2, sum;

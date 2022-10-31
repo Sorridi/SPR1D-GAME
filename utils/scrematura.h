@@ -1,12 +1,13 @@
 #ifndef FINAL_SCREMATURA_H
 #define FINAL_SCREMATURA_H
 
-#define MIN_PLAYERS 16
+// Il numero minimo di giocatori che possono partecipare al gioco (escludendo il giocatore controllato dall'utente).
+#define MIN_PLAYERS 15
 
-int add_concorrenti(Player **players, int currentSize);
+int add_concorrenti(Game *game);
 
 int find_sizes(int input);
 
-void play_scrematura(Player **players, int *numPlayers, int *startSize, GameStatus *gameStatus);
+void play_scrematura(Game *game);
 
 #endif //FINAL_SCREMATURA_H

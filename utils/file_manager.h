@@ -64,6 +64,7 @@ for (counter = var; counter >= 0; --counter)        \
     }                                               \
 }
 
+/* Struttura indicante il dizionario per il gioco IMPICCATO. */
 typedef struct
 {
     int     rows;
@@ -71,14 +72,14 @@ typedef struct
     char    **contents;
 } FileDictionary;
 
-void readGameStatus(GameStatus *gameStatus);
+void read_game_status(Game *game);
 
-void saveGameStatus(GameStatus *gameStatus);
+void save_game_status(Status *status);
 
-void readDictionary(FileDictionary *fileDictionary);
+void print_game_status(Game *game);
 
-void print_game_status(GameStatus *gameStatus);
+void read_dictionary(FileDictionary *fileDictionary);
 
-void ask_save_stats(GameStatus *gameStatus);
+void ask_save_stats(Status *status);
 
 #endif //FINAL_FILE_MANAGER_H

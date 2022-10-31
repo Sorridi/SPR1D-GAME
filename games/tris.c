@@ -337,10 +337,10 @@ Boolean turn_of(Player *player, Pawn **table, Pawn pawn, Boolean isHuman)
 
 /**
  * Gioca a tris.
- * @param players   I players partecipanti.
+ * @param group     Il gruppo di players partecipanti.
  * @return          Il player vincitore del match.
  */
-Player *play_tris(Player *players)
+Player *play_tris(Group group)
 {
     /*
      * i                        -> contatore.
@@ -357,8 +357,8 @@ Player *play_tris(Player *players)
      */
     int i;
 
-    Player *player1 = &players[0];
-    Player *player2 = &players[1];
+    Player *player1 = &group.players[0];
+    Player *player2 = &group.players[1];
     Player *winner;
 
     Boolean gameEnded;
@@ -378,8 +378,8 @@ Player *play_tris(Player *players)
     /* Se la condizione di precedenza delle REGOLE non e' stata rispettata all'inizializzazione, rimedia. */
     if (startCon)
     {
-        player1 = &players[1];
-        player2 = &players[0];
+        player1 = &group.players[1];
+        player2 = &group.players[0];
 
         isP1Human = is_human(player1);
         isP2Human = is_human(player2);

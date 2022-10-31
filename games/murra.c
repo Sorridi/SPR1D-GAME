@@ -88,10 +88,10 @@ int ask_sum_prediction(Player *player, Boolean isHuman)
 
 /**
  * Gioca a murra.
- * @param players   I players partecipanti.
+ * @param group     Il gruppo di players partecipanti.
  * @return          Il player vincitore del match.
  */
-Player *play_murra(Player *players)
+Player *play_murra(Group group)
 {
     /*
      * player1, player2         -> players partecipanti.
@@ -104,8 +104,8 @@ Player *play_murra(Player *players)
      * sumPlayer1, sumPlayer2   -> le somme del turno predette dai players.
      * trueSum                  -> la vera somma delle mani del turno.
      */
-    Player *player1 = &players[0];
-    Player *player2 = &players[1];
+    Player *player1 = &group.players[0];
+    Player *player2 = &group.players[1];
     Player *winner;
 
     Boolean gameEnded;

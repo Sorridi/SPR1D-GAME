@@ -28,6 +28,6 @@ typedef struct
     int     contentLength;
 } Phrase;
 
-Player* play_impiccato(Player *players);
+Player* play_impiccato(Group group);
 
 #endif //FINAL_IMPICCATO_H

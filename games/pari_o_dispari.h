@@ -15,12 +15,12 @@ typedef enum
 #define ALLOWED_VALUES_SIZE 6
 
 /*
- * Valori che la mano puo' assumere.
+ * Valori che la mano puo' assumere (range).
  */
 #define SHOW_HAND_MIN 0
 #define SHOW_HAND_MAX 5
 
-Player* play_pari_o_dispari(Player *players);
+Player* play_pari_o_dispari(Group group);
 
 PredictValue ask_prediction(Player *player, Boolean isHuman);
 

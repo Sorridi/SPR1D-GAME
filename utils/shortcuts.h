@@ -1,6 +1,8 @@
 #ifndef FINAL_SHORTCUTS_H
 #define FINAL_SHORTCUTS_H
 
+#include "file_manager.h"
+
 /*
  * Macro per controllare la validita' di un puntatore, in questo software, viene utilizzata per controllare se
  * l'allocazione dinamica e' andata a buon fine, altrimenti, il programma verra' chiuso forzatamente.
@@ -19,30 +21,23 @@ if (pointer == NULL)                                        \
 #define CALLOC_ARRAY(type, size) (type *) calloc((size), sizeof(type))
 #define REALLOC_ARRAY(type, arr, size) (type *) realloc(arr, sizeof(type) * (size))
 
-#define DEBUG_VARS(x, y) printf("x -> %x | y -> %x\n", &x, &y);
-#define DEBUG_PTRS(x, y) printf("x -> %x | y -> %x\n", x, y);
+// Macro utility per stampare l'address di una variabile.
+#define ADDR(x) printf("ADDR = %p\n", x);
+
+/* Macro utility per debuggare l'array di players. */
+#define DEBUG_PLAYERS(players, size)                                                \
+printf("STARTING DEBUG\n");                                                         \
+int m;                                                                              \
+for (m = 0; m < size; ++m)                                                          \
+{                                                                                   \
+    printf("[%d] %d %s\n", m, GET(players, m)->identifier, GET(players, m)->name);  \
+}                                                                                   \
+print_blank();
 
 #define SWAP_PTRS(type, x, y)   \
 type temp = *x;                 \
 *x = *y;                        \
 *y = temp;
-
-#define FOR_PRINT(counter, size, var)               \
-println("\nSTART FOR-PRINT");                       \
-for (counter = 0; counter < size; ++counter)        \
-{                                                   \
-    printf("%s %x\n", var[counter], &var[counter]); \
-}                                                   \
-println("END FOR-PRINT\n");
-
-#define FOR_PRINT_PLAYERS(counter, size, var)               \
-println("\nSTART FOR-PRINT-PLAYERS");                       \
-for (counter = 0; counter < size; ++counter)                \
-{                                                           \
-    print_player_name(var);                                 \
-    print_blank();                                          \
-}                                                           \
-println("END FOR-PRINT-PLAYERS\n");
 
 #define FREE_MATRIX(counter, size, matrix)          \
 for (counter = 0; counter < size; ++counter)        \
@@ -50,6 +45,9 @@ for (counter = 0; counter < size; ++counter)        \
     free(matrix[counter]);                          \
 }                                                   \
 free(matrix);
+
+// Non mi piace usare "a->b[c][d]", preferisco "&(*a->b)[d]" :)
+#define GET(matrix, item) (&(*matrix)[item])
 
 // Numero di nuove linee utilizzate per pulire lo schermo usando "println_wqt()".
 #define CLEAR_SCREEN_LINES 24
@@ -70,37 +68,55 @@ free(matrix);
 // Definisce il valore usato per l'inserimento di nuovi profili.
 #define USED_VALUE (-999)
 
-Player *play_game(Games game, Games *games, Player **groups, int rows, int size, int *sizes);
-void play_games(Player *startPlayers, int currentSize, int startSize, GameStatus *gameStatus, Player *eliminatedPlayers);
+// Il valore dell'id dei profili che non stanno giocando.
+#define NOT_PLAYING_ID (-1)
+
+/* Struttura indicante le opzioni possibili dell'aggiornamento statistiche. */
+typedef enum
+{
+    SPR1D_WON, SPR1D_PLAYED,
+    GAMES_WON, GAMES_PLAYED,
+    FINALS_PLAYED
+} StatsUpdate;
+
+void play_game(Games curGame, Group *groups, int rows, int size, int *sizes, Game *game);
+void play_games(Game *game);
+
+void incr_stats(Game *game, StatsUpdate statsUpdate);
 
 Games front_man_chooses(Games *gamesRemaining);
 
 void clear_screen();
 void print_blank();
 void print_fiorellini();
+void print_game_new();
 void println(char *text);
 void println_wqt(char *text, int newLines);
 void print_err(InputErr inputErr);
-void print_start_match(Player *players, int size);
+void print_start_match(Group group, int size);
 void print_end_match(Player *player);
 void print_new_game(Games game);
 void print_remaining_games(Games *games);
 void print_player_name(Player *player);
 void print_profile_name(Profile *profile);
-void print_groups(Player **groups, int rows, int columns);
-void print_winner(Player *winner);
-void print_winners(Player *winners, int size);
+void print_groups(Group *groups, int rows, int columns);
+void print_winner(Game *game);
+void print_winners(Game *game);
 void print_tablike(Player *player);
 
 int ask_input_int(int *allowed, int allowedSize, int inputLength, int denyMinusThan);
 char *ask_input_str(char *allowed, char *print);
+char *ask_input_str_with_len(char *allowed, char *print, int maxLength);
 int ask_menu_choice(char *text[], int rows, int len);
 
-int *ask_which_profile_plays(GameStatus *gameStatus);
+void ask_which_profile_plays(Game *game);
 
 Boolean is_num_odd(int num);
 Boolean is_game_quad(Games game);
 Boolean is_human(Player *player);
 Boolean is_front_man(Player *player);
+
+Game init_game();
+void update_totals(Game *game, ToUpdate toUpdate);
 
 #endif //FINAL_SHORTCUTS_H

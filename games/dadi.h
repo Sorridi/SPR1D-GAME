@@ -7,6 +7,6 @@
 #define VALORE_DADO_MIN 1
 #define VALORE_DADO_MAX 6
 
-Player* play_dadi(Player *players);
+Player* play_dadi(Group group);
 
 #endif //FINAL_DADI_H

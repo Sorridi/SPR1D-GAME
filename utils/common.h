@@ -47,6 +47,12 @@
 #define STR_TERM '\0'
 
 /*
+ * Il numero di volte che i player vivi vengono mischiati.
+ */
+#define PLAYER_RANDOMNESS_FACTOR 2
+#define PLAYER_SHUFFLES(num) (PLAYER_RANDOMNESS_FACTOR * num)
+
+/*
  * Grandezze consentite delle squadre.
  */
 #define DUO_GAME 2
@@ -82,9 +88,6 @@
 // Il numero di spazi che '\t' fornisce.
 #define TAB_CHARS 8
 
-// L'ID di chi non gioca
-#define ID_NOT_PLAYING (-1)
-
 /* Enumerazione rappresentante il classico valore Booleano */
 typedef enum
 {
@@ -96,6 +99,7 @@ typedef struct
 {
     int     identifier;
     char    *name;
+    Boolean alive;
 } Player;
 
 /* Struttura rappresentante il player umano e le sue statistiche. */
@@ -120,7 +124,32 @@ typedef struct
     int     totHumans;      // numero M di giocatori utente nella partita in corso;
     int     *humanIds;      // array di M interi contenente gli indici indicanti i giocatori utente che stanno partecipando alla partita;
     int     *playerStatuses;// array di N interi, indicante se i giocatori sono ancora in gioco o sono eliminati
-} GameStatus;
+} Status;
+
+/* Struttura rappresentate il gioco. */
+typedef struct
+{
+    Status      status;
+    Player      **players;
+    int         alivePlayers;
+    int         aliveHumans;
+} Game;
+
+/* Struttura rappresentante le opzioni possibili dell'aggiornamento dei dati. */
+typedef enum
+{
+    TOT_PLAYERS, TOT_PROFILES,
+    PLAYING,
+    PLAYER_STATUSES,
+    NUM_PROFILES,
+    STARTUP
+} ToUpdate;
+
+/* Struttura rappresentante il gruppo di players. */
+typedef struct
+{
+    Player *players;
+} Group;
 
 /* Enumerazione rappresentante i tipi di errori possibili in input. */
 typedef enum
@@ -136,7 +165,8 @@ typedef enum
     MUST_BE_EXACT_NUM,
     MUST_BE_DIFFERENT_NUM,
 
-    PLAYER_EXISTS
+    PLAYER_EXISTS,
+    SYSTEM_ERROR
 } InputErr;
 
 /* Enumerazione rappresentante i tipi di giochi. */
@@ -158,26 +188,23 @@ typedef enum
 } Games;
 
 int gen_num(int estremoMinore, int estremoMaggiore);
-Player **gen_groups(Player *players, int size, int groupSize);
-Player *gen_group(Player *players, int size, int *shuffledIds, int *counter);
+Group *gen_groups(Game *game, int groupSize);
+Group gen_group(Player **players, int size, int *shuffledIds, int *counter);
 
-int *shuffle_players(int size);
+int *shuffle_players(Game *game);
 
 Boolean check_characters(char *toCheck, char *allowed);
-Boolean check_profile_entry(Profile *profiles, int size, char *name);
-void insert_player(Player **players, int *size, char *name, Boolean verbose);
-void insert_profile(GameStatus *gameStatus, char *name);
+Boolean check_profile_entry(Game *game, char *name);
+void insert_player(Game *game, char *name, Boolean verbose, Boolean isAlive);
+void insert_profile(Game *game, char *name);
+void insert_player_custom(Game *game, Profile *profile, Boolean verbose);
 
-Player* find_front_man(Player *group, int size);
+Player* find_front_man(Game *game);
+Boolean front_man_in_group(Player *frontMan, Group group, int size);
 
 void selection_sort(int *toSort, int elements);
+void selection_sort_profiles(Game *game);
 
-Boolean group_full_of_bots(Player *group, int size);
-
-void update_player_statuses(Player *winners, int playerSize, int *statuses, int size);
-
-void incr_stats_winners(GameStatus *gameStatus, Player *winners, int numWinners, Boolean isFinal);
-void incr_stats(GameStatus *gameStatus, Player *players, int numPlayers, Boolean isFinal);
-void update_totals(Player *players, int numPlayers, GameStatus *gameStatus);
+Boolean group_full_of_bots(Group group, int size);
 
 #endif //FINAL_COMMON_H

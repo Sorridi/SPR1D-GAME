@@ -69,10 +69,10 @@ Symbols show_symbol(Player *player, Boolean isHuman)
 
 /**
  * Gioca a morra cinese.
- * @param players   I player partecipanti.
+ * @param group     Il gruppo di players partecipanti.
  * @return          Il player vincitore del match.
  */
-Player *play_morra_cinese(Player *players)
+Player *play_morra_cinese(Group group)
 {
     /*
      * player1, player2         -> players partecipanti.
@@ -84,8 +84,8 @@ Player *play_morra_cinese(Player *players)
      * handPlayer1, handPlayer2 -> i simboli scelti dai players.
      * handToWin                -> il simbolo da avere per vincere il match.
      */
-    Player *player1 = &players[0];
-    Player *player2 = &players[1];
+    Player *player1 = &group.players[0];
+    Player *player2 = &group.players[1];
     Player *winner;
 
     Boolean gameEnded;

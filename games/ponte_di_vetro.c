@@ -145,10 +145,10 @@ void print_player_cross(Player *player)
 
 /**
  * Gioca a ponte di vetro.
- * @param players   I player partecipanti.
+ * @param group     Il gruppo di players partecipanti.
  * @return          Il player vincitore del match.
  */
-Player *play_ponte_di_vetro(Player *players)
+Player *play_ponte_di_vetro(Group group)
 {
     /*
      * i                -> contatore.
@@ -188,7 +188,7 @@ Player *play_ponte_di_vetro(Player *players)
     for (i = 0; i < QUAD_GAME && !gameEnded; ++i)
     {
         // Nuovo turno, nuovo player.
-        player = &players[i];
+        player = &group.players[i];
 
         do
         {

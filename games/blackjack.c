@@ -200,7 +200,7 @@ void give_card(BlackJackProfile *profile, DeckOfCards *deck, Boolean announce)
     /*
      * player       -> il player.
      *
-     * curSize      -> il nuovo numero di carte del giocatore.
+     * curSize      -> il nuovo numero di carte del player.
      * curPointer   -> la posizione attuale nel deck.
      *
      * drawn        -> la carta pescata dal deck.
@@ -334,10 +334,10 @@ void build_profile(Player *player, BlackJackProfile *profile)
 
 /**
  * Gioca a BlackJack
- * @param players   I player partecipanti.
+ * @param group     Il gruppo di players partecipanti.
  * @return          Il player vincitore del match.
  */
-Player* play_blackjack(Player *players)
+Player* play_blackjack(Group group)
 {
     /*
      * i                    -> contatore.
@@ -352,8 +352,8 @@ Player* play_blackjack(Player *players)
      */
     int i;
 
-    Player *player1 = &players[0];
-    Player *player2 = &players[1];
+    Player *player1 = &group.players[0];
+    Player *player2 = &group.players[1];
     Player *winner;
 
     Boolean gameEnded, gameDraw;

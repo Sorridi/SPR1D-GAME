@@ -19,6 +19,6 @@
 #define LOWEST_HAND_VALUE 1
 #define HIGHEST_HAND_VALUE 5
 
-Player *play_murra(Player *players);
+Player *play_murra(Group group);
 
 #endif //FINAL_MURRA_H

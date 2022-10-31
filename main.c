@@ -9,31 +9,145 @@
 #include "utils/scrematura.h"
 #include "utils/file_manager.h"
 
+/**
+ * Pulisce la memoria occupata.
+ * @param game Il gioco in corso.
+ */
+void clear_game(Game *game)
+{
+    free(game->status.humanIds);
+    free(game->status.playerStatuses);
+
+    free(*game->status.profiles);
+    free(game->status.profiles);
+
+    free(*game->players);
+    free(game->players);
+}
+
+/**
+ * Azione per aggiunge un nuovo profilo.
+ * @param game  Il gioco in corso.
+ * @return      Se il profilo e' valido (true) o meno (false).
+ */
+Boolean action_profile(Game *game)
+{
+    // Il numero di profili totali correnti, utile per verifica la validita' dell'input dell'utente.
+    int oldSize = game->status.numProfiles;
+
+    // Chiede all'utente d'inserire il nome per il nuovo profilo.
+    char *playerName = ask_input_str(ALLOWED_CHARS, PRINT_NAME_PLAYER);
+
+    insert_profile(game, playerName);
+
+    free(playerName);
+
+    /* Se il nome inserito e' valido, passa al secondo menu', con piu' opzioni disponibili */
+    return game->status.numProfiles != oldSize;
+}
+
+/**
+ * Azione per giocare.
+ * @param game Il gioco in corso.
+ */
+void action_play(Game *game)
+{
+    ask_which_profile_plays(game);
+
+    play_scrematura(game);
+    play_games(game);
+
+    clear_game(game);
+}
+
+/**
+ * Azione per caricare un salvataggio.
+ * @param game Il gioco in corso.
+ */
+void action_load(Game *game)
+{
+    /*
+     * i, j         -> contatori.
+     * totPlayers   -> il numero totale di players.
+     *
+     * found        -> indica se il profilo e' stato trovato (true) o meno (false).
+     * alive        -> indica se il player e' vivo (true) o meno (false).
+     *
+     * tempProfile  -> valore temporaneo.
+     */
+    int i, j;
+
+    int totPlayers;
+
+    Boolean found = false;
+    Boolean alive;
+
+    Profile *tempProfile;
+
+    read_game_status(game);
+    print_game_status(game);
+
+    /* Se il gioco e' gia' in corso, ricostruisce lo stato del game e continua la partita. */
+    if (game->status.playing)
+    {
+        totPlayers = game->status.totPlayers;
+        game->status.totPlayers = 0;
+
+        for (i = 0; i < totPlayers; ++i)
+        {
+            alive = game->status.playerStatuses[i];
+
+            /* Se il player e' vivo, controlla se esso e' un anche un profilo. */
+            if (alive)
+            {
+                for (j = 0; j < game->status.totHumans && !found; ++j)
+                {
+                    tempProfile = GET(game->status.profiles, game->status.humanIds[j]);
+
+                    if (tempProfile->identifier == i)
+                    {
+                        found = true;
+                    }
+                }
+            }
+
+            /* Se esiste anche il profilo, aggiunge il player basandosi su esso, altrimenti, lo crea in modo generico. */
+            if (found)
+            {
+                insert_player_custom(game, tempProfile, true);
+                found = false;
+            }
+            else
+            {
+                insert_player(game, NULL, true, alive);
+            }
+        }
+
+        update_totals(game, PLAYER_STATUSES);
+
+        println("Il gioco riprende!");
+        play_games(game);
+
+        clear_game(game);
+    }
+    else
+    {
+        action_play(game);
+    }
+}
+
 int main()
 {
     /*
-     * i, j             -> contatori.
+     * firstActions     -> le azioni disponibili nel primo menu'.
+     * secondActions    -> le azioni disponibili nel secondo menu'.
      *
-     * firstActions     -> le entries del primo menu'.
-     * secondActions    -> le entries del secondo menu'.
+     * quit             -> indica se e' stato scelto di uscire dal gioco (true) o meno (false).
+     * firstMenu        -> indica se si e' ancora nel primo menu' (true) o meno (false).
      *
-     * startSize        -> il numero iniziale di players.
-     * mutableSize      -> il numero di players man mano che si gioca.
-     * choice           -> la scelta del menu'.
-     * oldSize          -> la dimensione vecchia del numero di giocatori presenti, utile per verificare l'aggiunta.
-     * profilesPlaying  -> i profili in gioco.
+     * menu             -> il numero del menu' corrente.
      *
-     * stopInsert       -> indica se il menu' deve essere ancora proposto al giocatore.
-     * isFirstMenu      -> indica se il menu' corrente e' il primo.
-     * validInsert      -> indica se il giocatore proposto dal player e' valido.
-     * found            -> indica se il valore e' stato trovato.
-     *
-     * players          -> la lista di players.
-     * tempPlayers      -> la lista di players temporanea.
-     *
-     * playerName       -> valore temporaneo rappresentante il nome del player.
-     *
-     * gameStatus       -> lo stato del gioco.
+     * game             -> il gioco in corso.
      */
     static char *firstActions[FIRST_MENU_SIZE] =
             {
@@ -49,175 +163,66 @@ int main()
                     "Chiudi il gioco"
             };
 
-    int i, j;
-    int startSize   = 0;
-    int mutableSize = 0;
-    int choice;
-    int oldSize;
-    int *profilesPlaying;
+    Boolean quit      = false;
+    Boolean firstMenu = true;
 
-    Boolean stopInsert      = false;
-    Boolean isFirstMenu     = true;
-    Boolean validInsert;
-    Boolean found           = false;
-    Boolean a = false;
+    int menu;
 
-    Player *players     = NULL;
-    Player *tempPlayers = NULL;
+    Game game = init_game();
 
-    char *playerName    = NULL;
-
-    GameStatus gameStatus = { };
-    gameStatus.profiles         = MALLOC_ARRAY(Profile *, 1); CRASH_IF_NULL(gameStatus.profiles)
-    gameStatus.humanIds         = CALLOC_ARRAY(int, 1); CRASH_IF_NULL(gameStatus.humanIds)
-    gameStatus.playerStatuses   = CALLOC_ARRAY(int, 1); CRASH_IF_NULL(gameStatus.playerStatuses)
+    print_game_new();
 
     // Inizializzazione del seme casuale.
     srand(time(NULL));
 
-    print_fiorellini();
-    println("\tGIOCO DELLO SPR1D GAME!");
-    print_fiorellini();
-
-    do
+    while (!quit)
     {
-        /*
-         * Stampa il menu' e chiede l'input all'utente.
-         */
-        if (isFirstMenu)
+        if (firstMenu)
         {
-            choice = ask_menu_choice(firstActions, FIRST_MENU_SIZE, LENGTH_ONE);
+            menu = ask_menu_choice(firstActions, FIRST_MENU_SIZE, LENGTH_ONE);
 
-            switch (choice)
+            switch (menu)
             {
                 case 0:
-                    /*
-                     * Chiede all'utente d'inserire il nome per il nuovo giocatore.
-                     */
-                    oldSize = gameStatus.numProfiles;
-
-                    playerName = ask_input_str(ALLOWED_CHARS, PRINT_NAME_PLAYER);
-                    insert_profile(&gameStatus, playerName);
-
-                    validInsert = gameStatus.numProfiles != oldSize;
-
-                    /* Se il nome inserito e' valido, passa al secondo menu', con piu' opzioni disponibili */
-                    if (validInsert)
-                    {
-                        isFirstMenu = false;
-                    }
-
-                    free(playerName);
+                    action_profile(&game);
                     break;
                 case 1:
-                    readGameStatus(&gameStatus);
-                    print_game_status(&gameStatus);
-
-                    if (gameStatus.playing)
-                    {
-                        /*
-                         * Tentativo fallito di far funzionare il load delle partite, la struttura era ben solida
-                         * ed ho dovuto riscriverla in buona parte, purtroppo il mio sistema di giocatori non utilizza
-                         * gli id come posizioni, ma da le posizioni a prescindere. :D
-                         */
-                        for (i = 0; i < gameStatus.totPlayers; i++)
-                        {
-                            for (j = 0; j < gameStatus.totHumans && !found; ++j)
-                            {
-                                if (gameStatus.playerStatuses[i])
-                                {
-                                    found = true;
-                                    a = ((*gameStatus.profiles)[gameStatus.humanIds[j]].identifier == i);
-                                }
-                            }
-                            j--;
-
-                            if (found && a)
-                            {
-                                insert_player(&tempPlayers, &mutableSize, (*gameStatus.profiles)[gameStatus.humanIds[j]].name, true);
-                            }
-                            else if (found)
-                            {
-                                insert_player(&tempPlayers, &mutableSize, NULL, true);
-                            }
-
-                            found = false;
-                        }
-
-                        startSize = mutableSize;
-
-                        println("Il gioco riprende!");
-                        play_games(tempPlayers, mutableSize, startSize, &gameStatus, NULL);
-
-                        free(players);
-                        free(tempPlayers);
-                        free(gameStatus.humanIds);
-                        free(gameStatus.playerStatuses);
-                        stopInsert = true;
-                    }
-                    else
-                    {
-                        isFirstMenu = false;
-                    }
+                    action_load(&game);
+                    quit = true;
                     break;
                 case 2:
-                    free(players);
-                    free(tempPlayers);
-                    free(gameStatus.humanIds);
-                    free(gameStatus.playerStatuses);
-                    stopInsert = true;
+                    quit = true;
                     break;
                 default:
                     break;
             }
+
+            firstMenu = false;
         }
         else
         {
-            choice = ask_menu_choice(secondActions, SECOND_MENU_SIZE, LENGTH_ONE);
+            menu = ask_menu_choice(secondActions, SECOND_MENU_SIZE, LENGTH_ONE);
 
-            switch (choice)
+            switch (menu)
             {
                 case 0:
-                    /*
-                     * Chiede all'utente d'inserire il nome per il nuovo giocatore.
-                     */
-                    playerName  = ask_input_str(ALLOWED_CHARS, PRINT_NAME_PLAYER);
-                    insert_profile(&gameStatus, playerName);
-
-                    free(playerName);
+                    action_profile(&game);
                     break;
                 case 1:
-                    saveGameStatus(&gameStatus);
+                    save_game_status(&game.status);
                     break;
                 case 2:
-                    /*
-                     * Chiede e aggiunge i profili che giocheranno lo SPR1D-GAME come players.
-                     */
-                    profilesPlaying = ask_which_profile_plays(&gameStatus);
-
-                    for (i = 0; i < gameStatus.numProfiles; ++i)
-                    {
-                        if (profilesPlaying[i] == USED_VALUE)
-                        {
-                            insert_player(&players, &mutableSize, (*gameStatus.profiles)[i].name, true);
-                        }
-                    }
-
-                    /* Gioca la scrematura e la partita. */
-                    play_scrematura(&players, &mutableSize, &startSize, &gameStatus);
-                    play_games(players, mutableSize, startSize, &gameStatus, NULL);
+                    action_play(&game);
+                    quit = true;
+                    break;
                 case 3:
-                    free(profilesPlaying);
-                    free(players);
-                    free(gameStatus.humanIds);
-                    free(gameStatus.playerStatuses);
-                    stopInsert  = true;
+                    quit = true;
                     break;
                 default:
                     break;
             }
         }
-    } while (!stopInsert);
+    }
 
     return 0;
 }

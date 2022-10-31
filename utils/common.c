@@ -1,5 +1,6 @@
 #include "common.h"
 #include "shortcuts.h"
+#include "file_manager.h"
 
 /**
  * Genera un numero casuale in un determinato range X->Y (inclusi).
@@ -14,12 +15,11 @@ int gen_num(int min, int max)
 
 /**
  * Genera i gruppi per i giochi.
- * @param players   La lista dei player.
- * @param size      La dimensione della lista dei player.
+ * @param game      Il gioco in corso.
  * @param groupSize La dimensione dei gruppi da generare.
  * @return          Array di gruppi di player.
  */
-Player **gen_groups(Player *players, int size, int groupSize)
+Group *gen_groups(Game *game, int groupSize)
 {
     /*
      * i, j         -> contatori.
@@ -28,16 +28,16 @@ Player **gen_groups(Player *players, int size, int groupSize)
      * shuffledIDs  -> l'array d'IDs ordinato casualmente.
      */
     int i, j;
-    int rows            = size / groupSize;
+    int rows            = game->alivePlayers / groupSize;
     int counter         = 0;
-    int *shuffledIds    = shuffle_players(size);
+    int *shuffledIds    = shuffle_players(game);
 
-    Player **groups = MALLOC_ARRAY(Player *, rows); CRASH_IF_NULL(groups)
+    Group *groups = MALLOC_ARRAY(Group, rows); CRASH_IF_NULL(groups)
 
     /* Utilizzando l'array casualmente ordinato, crea i gruppi casuali. */
     for (i = 0; i < rows; ++i)
     {
-        groups[i] = gen_group(players, groupSize, shuffledIds, &counter);
+        groups[i] = gen_group(game->players, groupSize, shuffledIds, &counter);
     }
 
     free(shuffledIds);
@@ -53,7 +53,7 @@ Player **gen_groups(Player *players, int size, int groupSize)
  * @param counter       Contatore per scegliere l'index degli IDs.
  * @return              Il gruppo creato.
  */
-Player *gen_group(Player *players, int size, int *shuffledIds, int *counter)
+Group gen_group(Player **players, int size, int *shuffledIds, int *counter)
 {
     /*
      * i        -> contatore.
@@ -62,12 +62,13 @@ Player *gen_group(Player *players, int size, int *shuffledIds, int *counter)
      */
     int i;
 
-    Player *group = MALLOC_ARRAY(Player, size); CRASH_IF_NULL(group)
+    Group group;
+    group.players = MALLOC_ARRAY(Player, size); CRASH_IF_NULL(group.players)
 
     /* Utilizzando il counter come index, prende un ID casuale dalla lista, esso sara' uno dei player del gruppo. */
     for (i = 0; i < size; ++i, ++(*counter))
     {
-        group[i] = players[shuffledIds[*counter]];
+        group.players[i] = (*players)[shuffledIds[*counter]];
     }
 
     return group;
@@ -75,12 +76,11 @@ Player *gen_group(Player *players, int size, int *shuffledIds, int *counter)
 
 /**
  * Controlla il nome del player da inserire.
- * @param players   La lista dei player.
- * @param size      La dimensione della lista dei player.
- * @param name      Il nome del player da controllare.
- * @return          Se il nome e' valido (true) o meno (false).
+ * @param game  La lista dei player.
+ * @param name  Il nome del player da controllare.
+ * @return      Se il nome e' valido (true) o meno (false).
  */
-Boolean check_profile_entry(Profile *profiles, int size, char *name)
+Boolean check_profile_entry(Game *game, char *name)
 {
     // Contatore.
     int i;
@@ -100,9 +100,9 @@ Boolean check_profile_entry(Profile *profiles, int size, char *name)
     }
 
     /* Controlla se il nome e' gia' occupato da altri player. */
-    for (i = 0; i < size; ++i)
+    for (i = 0; i < game->status.numProfiles; ++i)
     {
-        if (strcmp(name, profiles[i].name) == 0)
+        if (strcmp(name, GET(game->status.profiles, i)->name) == 0)
         {
             print_err(PLAYER_EXISTS);
             return false;
@@ -114,100 +114,86 @@ Boolean check_profile_entry(Profile *profiles, int size, char *name)
 
 /**
  * Crea un array di indexes casualmente ordinato che verra' utilizzato per creare i gruppi di players.
- * @param size  La grandezza dell'array.
+ * @param game  Il gioco in corso.
  * @return      L'array casualmente ordinato.
  */
-int *shuffle_players(int size)
+int *shuffle_players(Game *game)
 {
     /*
-     * i, j             -> contatori.
-     * generated        -> il valore generato.
-     * usedSize         -> la grandezza dell'array dei numeri gia' generati.
-     * used             -> array di numeri gia' utilizzati.
-     *
-     * valueExists      -> indica se un numero e' gia' stato utilizzato in precedenza.
+     * i, j                     -> contatori.
+     * toReplace, replacement   -> valori temporanei.
+     * randomized               -> l'array casualmente ordinato.
      */
     int i, j;
-    int generated;
-    int usedSize    = 0;
-    int *used       = NULL;
+    int toReplace, replacement;
+    int tempVal;
+    int *randomized = MALLOC_ARRAY(int, game->alivePlayers); CRASH_IF_NULL(randomized)
 
-    Boolean valueExists = false;
-
-    /* Genera un numero casuale per ogni player. */
-    for (i = 0; i < size; ++i)
+    for (i = 0, j = 0; i < game->status.totPlayers; ++i, ++j)
     {
-        generated = gen_num(0, size - 1);
-
-        /* Controlla se il numero generato era gia' stato utilizzato in precedenza. */
-        for (j = 0; j < usedSize; ++j)
+        if (GET(game->players, i)->alive)
         {
-            /* In tal caso incrementa il counter. */
-            if (generated == used[j])
-            {
-                valueExists = true;
-                j = usedSize;
-            }
-        }
-
-        /* Se il numero generato non era mai stato usato prima d'ora.  */
-        if (!valueExists)
-        {
-            /*
-             * Aggiunge una posizione all'array d'indexes utilizzati e ne assegna un elemento.
-             */
-            if (usedSize++ == 0)
-            {
-                used = MALLOC_ARRAY(int, usedSize); CRASH_IF_NULL(used)
-            }
-            else
-            {
-                used = REALLOC_ARRAY(int, used, usedSize); CRASH_IF_NULL(used)
-            }
-
-            used[usedSize - 1] = generated;
+            randomized[j] = i;
         }
         else
         {
-            valueExists = false;
-            i--;
+            --j;
         }
     }
 
-    return used;
+    for (i = 0; i < PLAYER_SHUFFLES(game->alivePlayers); ++i)
+    {
+        toReplace   = gen_num(0, game->alivePlayers - 1);
+        replacement = gen_num(0, game->alivePlayers - 1);
+
+        tempVal                 = randomized[toReplace];
+        randomized[toReplace]   = randomized[replacement];
+        randomized[replacement] = tempVal;
+    }
+
+    return randomized;
 }
 
 /**
  * Inserisce un nuovo player nella lista dei player.
- * @param players   La lista dei player correnti.
- * @param size      La dimensione della lista dei player.
- * @param name      Il nome del nuovo player da inserire.
+ * @param game      Il gioco in corso.
+ * @param name      Il nome del player da inserire.
+ * @param verbose   Se stampare a video che il player e' stato inserito (true) o meno (false).
+ * @param isAlive   Se il player e' vivo (true) o meno (false).
  */
-void insert_player(Player **players, int *size, char *name, Boolean verbose)
+void insert_player(Game *game, char *name, Boolean verbose, Boolean isAlive)
 {
     /*
+     * status   -> lo stato del gioco in corso.
+     *
      * pre      -> la size del precedente insert.
+     * size     -> il numero di players totali.
      *
      * player   -> il nuovo player da inserire.
+     * players  -> l'array di players.
      */
+    Status *status = &game->status;
+
     int pre;
+    int *size = &status->totPlayers;
 
     Player player;
+    Player **players = game->players;
 
-    if ((*size)++ == 0)
-    {
-        *players = MALLOC_ARRAY(Player, *size); CRASH_IF_NULL(*players)
-    }
-    else
+    // Aggiorna i dati.
+    update_totals(game, TOT_PLAYERS);
+
+    if (*size > 1)
     {
         *players = REALLOC_ARRAY(Player, *players, *size); CRASH_IF_NULL(*players)
     }
 
     pre = *size - 1;
 
-    /* Inizializzo i dati del player. */
+    /* Inizializza i dati del player. */
     player.name         = name;
     player.identifier   = pre;
+    player.alive        = isAlive;
 
     (*players)[pre] = player;
 
@@ -221,47 +207,101 @@ void insert_player(Player **players, int *size, char *name, Boolean verbose)
 
 /**
  * Inserisce un nuovo player nella lista dei player.
- * @param profiles  La lista dei profili correnti.
- * @param size      La dimensione della lista dei player.
- * @param name      Il nome del nuovo player da inserire.
+ * @param game      Il gioco in corso.
+ * @param profile   Il profilo del player da inserire.
+ * @param verbose   Se stampare a video che il player e' stato inserito (true) o meno (false).
  */
-void insert_profile(GameStatus *gameStatus, char *name)
+void insert_player_custom(Game *game, Profile *profile, Boolean verbose)
 {
     /*
+     * status   -> lo stato del gioco in corso.
+     *
      * pre      -> la size del precedente insert.
+     * size     -> il numero di players totali.
+     *
+     * player   -> il nuovo player da inserire.
+     * players  -> l'array di players.
+     */
+    Status *status = &game->status;
+
+    int pre;
+    int *size = &status->totPlayers;
+
+    Player player;
+    Player **players = game->players;
+
+    // Aggiorna i dati.
+    update_totals(game, TOT_PLAYERS);
+
+    if (*size > 1)
+    {
+        *players = REALLOC_ARRAY(Player, *players, *size); CRASH_IF_NULL(*players)
+    }
+
+    pre = *size - 1;
+
+    profile->identifier = profile->identifier == NOT_PLAYING_ID ? pre : profile->identifier;
+
+    /* Inizializzo i dati del player. */
+    player.name         = profile->name;
+    player.identifier   = profile->identifier;
+    player.alive        = true;
+
+    (*players)[pre] = player;
+
+    if (verbose)
+    {
+        printf("INSERITO: ");
+        print_player_name(&player);
+        print_blank();
+    }
+}
+
+/**
+ * Inserisce un nuovo player nella lista dei player.
+ * @param game  Il gioco in corso.
+ * @param name  Il nome del nuovo player da inserire.
+ */
+void insert_profile(Game *game, char *name)
+{
+    /*
+     * status   -> lo stato del gioco in corso.
+     *
+     * pre      -> la size del precedente insert.
+     * size     -> il numero di players totali.
      *
      * profile  -> il nuovo profilo da inserire.
+     * profiles -> l'array di profili.
      */
-    int pre;
+    Status *status = &game->status;
 
-    Profile profile;
-    Profile *profiles = *gameStatus->profiles;
+    int pre;
+    int *size = &status->numProfiles;
+
+    Profile profile = { };
+    Profile **profiles = status->profiles;
 
     /* Se il player non e' un bot, e' necessario eseguire vari checks sul nome che l'utente ha fornito in input. */
-    if (check_profile_entry(profiles, gameStatus->numProfiles, name))
+    if (check_profile_entry(game, name))
     {
-        if (gameStatus->numProfiles++ == 0)
+        update_totals(game, NUM_PROFILES);
+
+        if (*size == 1)
         {
-            profiles = MALLOC_ARRAY(Profile, gameStatus->numProfiles); CRASH_IF_NULL(profiles)
+            *profiles = MALLOC_ARRAY(Profile, *size); CRASH_IF_NULL(*profiles)
         }
         else
         {
-            profiles = REALLOC_ARRAY(Profile, profiles, gameStatus->numProfiles); CRASH_IF_NULL(profiles)
+            *profiles = REALLOC_ARRAY(Profile, *profiles, *size); CRASH_IF_NULL(*profiles)
         }
 
-        pre = gameStatus->numProfiles - 1;
+        pre = *size - 1;
 
         /* Inizializzo i dati del player. */
         strcpy(profile.name, name);
-        profile.identifier      = -1;
-        profile.spr1dWon        = 0;
-        profile.spr1dPlayed     = 0;
-        profile.gamesPlayed     = 0;
-        profile.gamesWon        = 0;
-        profile.finalsPlayed    = 0;
+        profile.identifier = -1;
 
-        profiles[pre] = profile;
-        *gameStatus->profiles = profiles;
+        (*profiles)[pre] = profile;
 
         printf("INSERITO PROFILO: ");
         print_profile_name(&profile);
@@ -271,11 +311,10 @@ void insert_profile(GameStatus *gameStatus, char *name)
 
 /**
  * Controlla nel gruppo se e' presente il FrontMan dello SPR1D GAME.
- * @param group Il gruppo da controllare.
- * @param size  La grandezza del gruppo.
+ * @param group Il game in corso.
  * @return      Il FrontMan in caso sia presente, altrimenti, NULL.
  */
-Player* find_front_man(Player *group, int size)
+Player* find_front_man(Game *game)
 {
     /*
      * i        -> contatore
@@ -288,10 +327,9 @@ Player* find_front_man(Player *group, int size)
     Player *player      = NULL;
     Player *frontMan    = NULL;
 
-    /* Controlla tutto il gruppo alla ricerca del FrontMan. */
-    for (i = 0; i < size && frontMan == NULL; ++i)
+    for (i = 0; i < game->status.totPlayers && frontMan == NULL; ++i)
     {
-        player = &group[i];
+        player = GET(game->players, i);
 
         if (is_front_man(player))
         {
@@ -300,6 +338,38 @@ Player* find_front_man(Player *group, int size)
     }
 
     return frontMan;
+}
+
+/**
+ * Controlla se nel gruppo e' presente il FrontMan.
+ * @param frontMan  Il FrontMan.
+ * @param group     Il gruppo da controllare.
+ * @param size      La grandezza del gruppo.
+ * @return          Se il FrontMan e' presente nel gruppo (true) o meno (false).
+ */
+Boolean front_man_in_group(Player *frontMan, Group group, int size)
+{
+    /*
+     * i        -> contatore.
+     *
+     * result   -> il risultato dell'azione.
+     */
+    int i;
+
+    Boolean result = false;
+
+    if (frontMan != NULL)
+    {
+        for (i = 0; i < size && !result; ++i)
+        {
+            if (group.players[i].identifier == frontMan->identifier)
+            {
+                result = true;
+            }
+        }
+    }
+
+    return result;
 }
 
 /**
@@ -368,12 +438,75 @@ void selection_sort(int *toSort, int elements)
 }
 
 /**
+ * Sorta i profili in modo tale che l'id corrisponda allo slot da loro occupato.
+ * @param game Il gioco in corso.
+ */
+void selection_sort_profiles(Game *game)
+{
+    /*
+     * status       -> lo stato del gioco in corso.
+     *
+     * i, j, k      -> valori temporanei e contatori.
+     * elements     -> il numero di profili totali in gioco.
+     *
+     * tempProfile  -> valore temporaeno.
+     */
+    Status *status = &game->status;
+
+    int i, j, k;
+    int min;
+    int elements = status->totHumans;
+
+    Profile tempProfile;
+
+    /*
+     * Sorta gli id dei profili in modo che l'ID del profilo sia associato alla casella occupata da esso
+     * nell'array di profili.
+     *
+     * In modo tale da avere anche l'indice dei profili ordinato.
+     */
+    for (i = 0; i < status->numProfiles; ++i)
+    {
+        for (j = i; j < status->numProfiles; ++j)
+        {
+            tempProfile = (*status->profiles)[j];
+
+            if (tempProfile.identifier != NOT_PLAYING_ID)
+            {
+                (*status->profiles)[j] = (*status->profiles)[i];
+                (*status->profiles)[i] = tempProfile;
+                (*game->players)[tempProfile.identifier].name = GET(status->profiles, i)->name;
+            }
+        }
+    }
+
+    /* Sposta ogni profilo non in gioco a destra dell'array, e ogni ID in gioco a sinistra. */
+    for (i = 0; i < status->numProfiles - 1; ++i)
+    {
+        min = i;
+
+        for (j = i + 1; j < status->numProfiles - elements; ++j)
+        {
+            if ((*status->profiles)[j].identifier < (*status->profiles)[min].identifier)
+            {
+                min = j;
+            }
+        }
+
+        k = GET(status->profiles, i)->identifier;
+        tempProfile = (*status->profiles)[k];
+        (*status->profiles)[k] = (*status->profiles)[i];
+        (*status->profiles)[i] = tempProfile;
+    }
+}
+
+/**
  * Controlla se un gruppo e' composto da solo bots.
  * @param group Il gruppo.
  * @param size  La grandezza del gruppo.
  * @return      Se il gruppo e' composto da soli bots (true) o meno (false).
  */
-Boolean group_full_of_bots(Player *group, int size)
+Boolean group_full_of_bots(Group group, int size)
 {
     // Contatore.
     int i;
@@ -381,137 +514,11 @@ Boolean group_full_of_bots(Player *group, int size)
     /* Controlla ogni player del gruppo in cerca di un umano, */
     for (i = 0; i < size; ++i)
     {
-        if (is_human(&group[i]))
+        if (is_human(&group.players[i]))
         {
             return false;
         }
     }
 
     return true;
-}
-
-/**
- * Aggiorna gli stati dei player.
- * @param players       I players ancora in vita.
- * @param playerSize    Il numero di players.
- * @param statuses      Gli status di tutti i player che hanno giocato finora.
- * @param size          Il numero di status.
- */
-void update_player_statuses(Player *winners, int playerSize, int *statuses, int size)
-{
-    // Contatore.
-    int i;
-
-    /* Resetto tutti gli status. */
-    for (i = 0; i < size; ++i)
-    {
-        statuses[i] = STATUS_ELIMINATED;
-    }
-
-    /* Imposto gli status nuovi ai player che sono ancora in vita. */
-    for (i = 0; i < playerSize; ++i)
-    {
-        statuses[winners[i].identifier] = STATUS_ALIVE;
-    }
-}
-
-/**
- * Incrementa le varie statistiche dei vincitori.
- * @param gameStatus    Lo stato corrente del game.
- * @param winners       I vincitori.
- * @param numWinners    Il numero di vincitori.
- * @param isFinal       Se e' la finale (true) o meno (false).
- */
-void incr_stats_winners(GameStatus *gameStatus, Player *winners, int numWinners, Boolean isFinal)
-{
-    int i, j;
-    int counter = 0;
-
-    Profile *profile;
-
-    /* Filtra i profili vincitori e incrementa le loro statistiche. */
-    for (i = 0; i < gameStatus->numProfiles; ++i)
-    {
-        profile = &(*gameStatus->profiles)[i]; // non mi piace usare "a->b[c][d]", preferisco "&(*a->b)[d]" :)
-
-        for (j = 0; j < numWinners; ++j)
-        {
-            if (winners[j].identifier == profile->identifier)
-            {
-                counter++;
-                profile->gamesWon++;
-
-                if (isFinal)
-                {
-                    profile->spr1dWon++;
-                }
-            }
-        }
-    }
-
-    gameStatus->totHumans = counter;
-}
-
-/**
- * Aggiorna il numero di umani e players in gioco.
- * @param players       I players.
- * @param numPlayers    Il numero di players.
- * @param gameStatus    Lo stato corrente del gioco.
- */
-void update_totals(Player *players, int numPlayers, GameStatus *gameStatus)
-{
-    /*
-     * i, j     -> contatori.
-     * counter  -> numero totale di umani.
-     */
-    int i, j;
-
-    int counter = 0;
-
-    for (i = 0; i < gameStatus->numProfiles; ++i)
-    {
-        for (j = 0; j < numPlayers; ++j)
-        {
-            if ((*gameStatus->profiles)[i].identifier == players[j].identifier)
-            {
-                counter++;
-            }
-        }
-    }
-
-    gameStatus->totHumans   = counter;
-    gameStatus->totPlayers  = numPlayers;
-}
-
-/**
- * Incrementa le varie statistiche di tutti i players.
- * @param gameStatus    Lo stato corrente del game.
- * @param players       I players.
- * @param numPlayers    Il numero di players.
- * @param isFinal       Se e' la finale (true) o meno (false).
- */
-void incr_stats(GameStatus *gameStatus, Player *players, int numPlayers, Boolean isFinal)
-{
-    int i, j;
-
-    Profile *profile;
-
-    /* Filtra i profili player e incrementa le loro statistiche. */
-    for (i = 0; i < gameStatus->numProfiles; ++i)
-    {
-        profile = &(*gameStatus->profiles)[i]; // non mi piace usare "a->b[c][d]", preferisco "&(*a->b)[d]" :)
-
-        for (j = 0; j < numPlayers; ++j)
-        {
-            if (players[j].identifier == profile->identifier)
-            {
-                profile->gamesPlayed++;
-
-                if (isFinal)
-                {
-                    profile->finalsPlayed++;
-                }
-            }
-        }
-    }
 }

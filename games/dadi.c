@@ -41,10 +41,10 @@ void print_throw_dices(Player *player, int sum)
 
 /**
  * Gioca a dadi.
- * @param players   I players partecipanti.
+ * @param group     Il gruppo di players partecipanti.
  * @return          Il player vincitore del match.
  */
-Player* play_dadi(Player *players)
+Player* play_dadi(Group group)
 {
     /*
      * player1, player2             -> players partecipanti.
@@ -56,8 +56,8 @@ Player* play_dadi(Player *players)
      *
      * gameEnded                    -> indica se il gioco e' terminato.
      */
-    Player *player1 = &players[0];
-    Player *player2 = &players[1];
+    Player *player1 = &group.players[0];
+    Player *player2 = &group.players[1];
     Player *winner;
 
     int dice1, dice2;
@@ -77,8 +77,8 @@ Player* play_dadi(Player *players)
         print_throw_dices(player1, sumPlayer1);
 
         /*
-         * Se la somma del turno precedente e' maggiore alla somma del turno corrente, il giocatore avra' perso
-         * il match, e verra' constatato come vincitore l'altro giocatore.
+         * Se la somma del turno precedente e' maggiore alla somma del turno corrente, il player avra' perso
+         * il match, e verra' constatato come vincitore l'altro player.
          */
         gameEnded = sumPlayer1 < oldSumPlayer1;
 
@@ -98,8 +98,8 @@ Player* play_dadi(Player *players)
             print_throw_dices(player2, sumPlayer2);
 
             /*
-             * Se la somma del turno precedente e' maggiore alla somma del turno corrente, il giocatore avra' perso
-             * il match, e verra' constatato come vincitore l'altro giocatore.
+             * Se la somma del turno precedente e' maggiore alla somma del turno corrente, il player avra' perso
+             * il match, e verra' constatato come vincitore l'altro player.
              */
             gameEnded = sumPlayer2 < oldSumPlayer2;
 

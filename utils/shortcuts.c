@@ -12,7 +12,6 @@
 #include "../games/blackjack.h"
 #include "../games/impiccato.h"
 #include "../games/bot_game.h"
-#include "file_manager.h"
 
 /**
  * Stampa a video un "a capo".
@@ -31,6 +30,16 @@ void print_fiorellini()
 }
 
 /**
+ * Stampa a video l'introduzione al gioco.
+ */
+void print_game_new()
+{
+    print_fiorellini();
+    println("\tGIOCO DELLO SPR1D GAME!");
+    print_fiorellini();
+}
+
+/**
  * Stampa a video del testo con un "a capo".
  * @param text Il testo da stampare.
  */
@@ -42,10 +51,10 @@ void println(char *text)
 
 /**
  * Stampa a video i partecipanti del match.
- * @param players   Gli sfidanti.
- * @param size      Il numero di sfidanti.
+ * @param group Il gruppo di players.
+ * @param size  La grandezza del gruppo.
  */
-void print_start_match(Player *players, int size)
+void print_start_match(Group group, int size)
 {
     // Contatore.
     int i;
@@ -55,7 +64,7 @@ void print_start_match(Player *players, int size)
     /* Stampa a video il nome dei player del match. */
     for (i = 0; i < size; ++i)
     {
-        print_player_name(&players[i]);
+        print_player_name(&group.players[i]);
 
         /* Evita di scrivere "vs" arrivato all'ultimo player. */
         if (i != size - 1)
@@ -85,7 +94,7 @@ void print_end_match(Player *player)
  */
 void print_new_game(Games game)
 {
-    // Il nome di ogni gioco.
+    /* I nomi di tutti i giochi. */
     static char *gameNames[] =
             {
                     "DADI",
@@ -113,7 +122,7 @@ void print_new_game(Games game)
 void print_remaining_games(Games *remainingGames)
 {
     /*
-     * gameNames    -> il nome di ogni gioco, esclusi BLACKJACK e INDOVINA_NUMERO.
+     * gameNames    -> i nomi di tutti i giochi, esclusi BLACKJACK e INDOVINA_NUMERO.
      *
      * i            -> contatore
      */
@@ -134,7 +143,6 @@ void print_remaining_games(Games *remainingGames)
     print_fiorellini();
     println("Giochi rimanenti:");
 
-    /* Stampa a video il nome di ogni gioco che non e' stato ancora giocato. */
     for (i = 0; i < NUM_GAMES; ++i)
     {
         if (remainingGames[i] != NO_GAME)
@@ -152,7 +160,7 @@ void print_remaining_games(Games *remainingGames)
  */
 void print_err(InputErr inputErr)
 {
-    // Ogni messaggio di errore corrispondente all'errori.
+    /* Messaggi di errore. */
     static char *errorNames[] =
             {
                     "Hai inserito dei caratteri non consentiti!",
@@ -164,7 +172,8 @@ void print_err(InputErr inputErr)
                     "E' stato inserito un numero troppo piccolo!",
                     "Devi inserire uno dei numeri consentiti!",
                     "Devi inserire un numero differente!",
-                    "Un giocatore con lo stesso nome e' gia' presente!"
+                    "Un giocatore con lo stesso nome e' gia' presente!",
+                    "Un errore di sistema e' avvenuto! :("
             };
 
     printf("\nERRORE: %s\n", errorNames[inputErr]);
@@ -186,6 +195,14 @@ void println_wqt(char *text, int newLines)
     {
         print_blank();
     }
+}
+
+/**
+ * Pulisci-schermo rudimentale.
+ */
+void clear_screen()
+{
+    println_wqt(EMPTY_STRING, CLEAR_SCREEN_LINES);
 }
 
 /**
@@ -221,21 +238,20 @@ void print_profile_name(Profile *profile)
  * @param rows      Il numero di righe.
  * @param columns   Il numero di colonne.
  */
-void print_groups(Player **groups, int rows, int columns)
+void print_groups(Group *groups, int rows, int columns)
 {
     // Contatori.
     int i, j;
 
     println("\nI gruppi per il prossimo gioco saranno i seguenti:");
 
-    /* Stampa a video ogni gruppo. */
     for (i = 0; i < rows; ++i)
     {
         printf("\nGRUPPO: %d\n", i);
 
         for (j = 0; j < columns; ++j)
         {
-            print_tablike(&groups[i][j]);
+            print_tablike(&groups[i].players[j]);
         }
     }
 
@@ -246,10 +262,24 @@ void print_groups(Player **groups, int rows, int columns)
  * Stampa a video il vincitore dello SPR1D-GAME.
  * @param winner Il player vincitore.
  */
-void print_winner(Player *winner)
+void print_winner(Game *game)
 {
+    int i;
+
+    Player *winner;
+
     printf("\nIL VINCITORE DELLO SPR1D-GAME E': ");
-    print_player_name(winner);
+
+    for (i = 0; i < game->status.totPlayers; ++i)
+    {
+        winner = GET(game->players, i);
+
+        if (winner->alive)
+        {
+            print_player_name(winner);
+        }
+    }
+
     print_blank();
 }
 
@@ -258,16 +288,27 @@ void print_winner(Player *winner)
  * @param winners   I player vincitori.
  * @param size      Il numero di vincitori.
  */
-void print_winners(Player *winners, int size)
+void print_winners(Game *game)
 {
-    // Contatore.
+    /*
+     * i        -> contatore.
+     *
+     * player   -> valore temporaneo di supporto.
+     */
     int i;
+
+    Player *player;
 
     println("\nVINCITORI DEL GIOCO:");
 
-    for (i = 0; i < size; ++i)
+    for (i = 0; i < game->status.totPlayers; ++i)
     {
-        print_tablike(&winners[i]);
+        player = GET(game->players, i);
+
+        if (player->alive)
+        {
+            print_tablike(player);
+        }
     }
 }
 
@@ -294,97 +335,103 @@ void print_tablike(Player *player)
 
 /**
  * Esecutore di giochi.
- * @param game              Il gioco scelto.
- * @param gamesRemaining    I giochi rimanenti.
- * @param groups            I players partecipanti.
- * @param rows              Il numero di gruppi.
- * @param size              La grandezza dei gruppi.
- * @param sizes             Il numero di players.
- * @return                  I players vincitori.
+ * @param curGame   Il gioco scelto.
+ * @param groups    I gruppi di players.
+ * @param rows      Il numero di gruppi.
+ * @param size      La grandezza dei gruppi.
+ * @param sizes     Il numero di players di ogni gruppo (opzionale).
+ * @param game      Il gioco in corso.
  */
-Player *play_game(Games game, Games *gamesRemaining, Player **groups, int rows, int size, int *sizes)
+void play_game(Games curGame, Group *groups, int rows, int size, int *sizes, Game *game)
 {
     /*
-     * i            -> contatore.
+     * i, j             -> contatori.
+     * toRemove         -> valore temporaneo per tenere gli id dei perdenti.
      *
-     * group        -> gruppo dei player temporaneo.
-     * winner       -> vincitore del game temporaneo.
-     * winners      -> array di player che hanno vinto il gioco.
-     * frontMan     -> il FrontMan, se presente.
+     * group            -> gruppo dei player temporaneo.
      *
-     * fullOfBots   -> indica se il gruppo e' pieno di bots (true) o meno (false);
+     * winner           -> vincitore del game temporaneo.
+     * frontMan         -> il FrontMan del gioco in corso, se presente.
+     *
+     * fullOfBots       -> indica se il gruppo e' pieno di bots (true) o meno (false);
+     * frontManPresent  -> indica se il FrontMan e' presente nel gruppo (true) o meno (false);
      */
-    int i;
+    int i, j;
 
-    Player *group;
+    int toRemove;
+
+    Group *group;
+
     Player *winner;
-    Player *winners     = MALLOC_ARRAY(Player, rows); CRASH_IF_NULL(winners)
-    Player *frontMan    = NULL;
+    Player *frontMan = find_front_man(game);
 
     Boolean fullOfBots;
+    Boolean frontManPresent;
 
-    print_new_game(game);
+    print_new_game(curGame);
 
     /* Fa giocare ogni gruppo al gioco scelto. */
     for (i = 0; i < rows; ++i)
     {
-        group = groups[i];
+        group = &groups[i];
 
+        /* Se il gioco ha un numero di player dinamici, rimpiazza la size con quella del gruppo corrente. */
         if (sizes != NULL)
         {
             size = sizes[i];
         }
 
-        fullOfBots = group_full_of_bots(group, size);
+        fullOfBots = group_full_of_bots(*group, size);
 
+        /* Se il gioco e' composto da soli bot, genera casualmente il vincitore. */
         if (fullOfBots)
         {
-            winner = play_bot_game(group, size);
+            winner = play_bot_game(*group, size);
         }
         else
         {
-            print_start_match(group, size);
+            print_start_match(*group, size);
 
-            frontMan = find_front_man(group, size);
+            frontManPresent = front_man_in_group(frontMan, *group, size);
 
-            switch (game)
+            switch (curGame)
             {
                 case DADI:
-                    winner = play_dadi(group);
+                    winner = play_dadi(*group);
                     break;
                 case BIGLIE:
-                    winner = play_biglie(group);
+                    winner = play_biglie(*group);
                     break;
                 case IMPICCATO:
-                    winner = play_impiccato(group);
+                    winner = play_impiccato(*group);
                     break;
                 case MORRA_CINESE:
-                    winner = play_morra_cinese(group);
+                    winner = play_morra_cinese(*group);
                     break;
                 case MURRA:
-                    winner = play_murra(group);
+                    winner = play_murra(*group);
                     break;
                 case PARI_O_DISPARI:
-                    winner = play_pari_o_dispari(group);
+                    winner = play_pari_o_dispari(*group);
                     break;
                 case PONTE_DI_VETRO:
-                    winner = play_ponte_di_vetro(group);
+                    winner = play_ponte_di_vetro(*group);
                     break;
                 case TRIS:
-                    winner = play_tris(group);
+                    winner = play_tris(*group);
                     break;
                 case BLACKJACK:
-                    winner = play_blackjack(group);
+                    winner = play_blackjack(*group);
                     break;
                 case INDOVINA_NUMERO:
-                    winner = play_indovina_numero(group, size);
+                    winner = play_indovina_numero(*group, size);
                     break;
                 default:
                     break;
             }
 
             /* Se presente, il FrontMan vince sempre. */
-            if (frontMan != NULL)
+            if (frontManPresent)
             {
                 winner = frontMan;
             }
@@ -392,55 +439,50 @@ Player *play_game(Games game, Games *gamesRemaining, Player **groups, int rows, 
             print_end_match(winner);
         }
 
-        winners[i] = *winner;
-    }
+        /* Imposta lo stato di "morto" a tutti i perdenti. */
+        for (j = 0; j < size; ++j)
+        {
+            toRemove = group->players[j].identifier;
 
-    if (gamesRemaining != NULL && game < NUM_GAMES)
-    {
-        // Non sara' piu' possibile giocare al gioco appena giocato.
-        gamesRemaining[game] = NO_GAME;
+            if (winner->identifier != toRemove)
+            {
+                GET(game->players, toRemove)->alive = false;
+            }
+        }
     }
-
-    return winners;
 }
 
 /**
  * Gioca ogni gioco dello SPR1D-GAME.
- * @param profiles      I profili.
- * @param startPlayers  I players iniziali.
- * @param statuses      Gli statuses dei players.
- * @param currentSize   Il numero di players attuali.
- * @param startSize     Il numero di players iniziali.
- * @param gameStatus    Lo stato corrente del game.
+ * @param game I gioco in corso.
  */
-void play_games(Player *startPlayers, int currentSize, int startSize, GameStatus *gameStatus, Player *eliminatedPlayers)
+void play_games(Game *game)
 {
     /*
      * i                -> contatore.
      * groupSize        -> la grandezza del gruppo.
+     * size             -> il numero di players vivi.
      *
-     * currentPlayers   -> l'array mutabile di players.
      * frontMan         -> il FrontMan, se presente.
-     * groups           -> i gruppi di players che giocheranno ai giochi.
-     * winners          -> i vincitori di ogni gruppo.
+     *
+     * groups           -> i gruppi che giocheranno ai giochi.
      *
      * frontManExists   -> indica se il FrontMan esiste (true) o meno (false).
+     * isFinal          -> indica se il gioco e' nella fase finale esiste (true) o meno (false).
      *
      * currentGame      -> il gioco che si giochera' nel turno.
      * games            -> lista per tenere traccia dei giochi ancora giocabili.
      */
-    int i, j;
+    int i;
     int groupSize;
-    int *statuses = gameStatus->playerStatuses;
+    int size = game->alivePlayers;
 
-    Player *currentPlayers  = NULL;
-    Player *frontMan        = NULL;
-    Player *winners         = NULL;
-    Player **groups         = NULL;
+    Player *frontMan = NULL;
+
+    Group *groups = NULL;
 
     Boolean frontManExists;
     Boolean isFinal;
-    Boolean found;
 
     Games currentGame;
     Games *games = MALLOC_ARRAY(Games, NUM_GAMES); CRASH_IF_NULL(games)
@@ -451,66 +493,16 @@ void play_games(Player *startPlayers, int currentSize, int startSize, GameStatus
         games[i] = i;
     }
 
-    /* Inizializzo i player dell'array mutabile. */
-    if (eliminatedPlayers != NULL)
-    {
-        currentSize = 0;
-
-        for (i = 0; i < startSize; ++i)
-        {
-            for (j = 0; j < startSize; ++j)
-            {
-                if (startPlayers[i].identifier == eliminatedPlayers[j].identifier)
-                {
-                    printf("%d == %d\n", startPlayers[i].identifier, eliminatedPlayers[j].identifier);
-                    found = true;
-                    j = startSize;
-                }
-            }
-
-            if (!found)
-            {
-                printf("NOT ELIMINATE %s\n", startPlayers[i].name);
-
-                if (currentSize++ == 0)
-                {
-                    currentPlayers = MALLOC_ARRAY(Player, currentSize); CRASH_IF_NULL(currentPlayers)
-                }
-                else
-                {
-                    currentPlayers = REALLOC_ARRAY(Player, currentPlayers, currentSize); CRASH_IF_NULL(currentPlayers)
-                }
-
-                currentPlayers[currentSize - 1] = startPlayers[i];
-            }
-
-            found = false;
-        }
-
-        currentSize++;
-    }
-    else
-    {
-        currentPlayers = MALLOC_ARRAY(Player, startSize); CRASH_IF_NULL(currentPlayers)
-
-        for (i = 0; i < currentSize; ++i)
-        {
-            currentPlayers[i] = startPlayers[i];
-        }
-    }
-
     /* Controlla la presenza del FrontMan. */
-    frontMan        = find_front_man(currentPlayers, currentSize);
+    frontMan        = find_front_man(game);
     frontManExists  = frontMan != NULL;
 
-    // Aggiorna le varie statistiche.
-    update_totals(currentPlayers, currentSize, gameStatus);
+    /* Aggiorna i dati e chiede dove salvarli. */
+    update_totals(game, PLAYER_STATUSES);
+    ask_save_stats(&game->status);
 
-    /* Aggiorna l'array di statuses impostando i player vivi ad: ALIVE. */
-    update_player_statuses(currentPlayers, currentSize, statuses, startSize);
-    gameStatus->playing = true;
-
-    ask_save_stats(gameStatus);
+    // Aggiorna le statistiche dei profili in gioco.
+    incr_stats(game, SPR1D_PLAYED);
 
     do
     {
@@ -518,13 +510,13 @@ void play_games(Player *startPlayers, int currentSize, int startSize, GameStatus
          * Se i players rimanenti sono maggiori di DUO_GAME, e' necessario giocare altri giochi, altrimenti,
          * si giochera' la fase finale, il BLACKJACK.
          */
-        if (currentSize > DUO_GAME)
+        if (size > DUO_GAME)
         {
             /*
              * Se i players rimanenti sono QUAD_GAME, segna ogni gioco da QUAD_GAME players come gia' giocato,
              * dato che, non sarebbe possibile giocare al BLACKJACK con solo 1 player.
              */
-            if (currentSize == QUAD_GAME)
+            if (size == QUAD_GAME)
             {
                 for (i = 0; i < NUM_GAMES; ++i)
                 {
@@ -554,66 +546,94 @@ void play_games(Player *startPlayers, int currentSize, int startSize, GameStatus
         else
         {
             currentGame = BLACKJACK;
+            incr_stats(game, FINALS_PLAYED);
         }
 
         isFinal = currentGame == BLACKJACK;
 
-        // Aggiorna le varie statistiche.
-        incr_stats(gameStatus, currentPlayers, currentSize, isFinal);
+        // Aggiorna le statistiche dei profili in gioco.
+        incr_stats(game, GAMES_PLAYED);
 
         /* Genera i gruppi. */
         groupSize   = is_game_quad(currentGame) ? QUAD_GAME : DUO_GAME;
-        groups      = gen_groups(currentPlayers, currentSize, groupSize);
-        currentSize /= groupSize;
+        groups      = gen_groups(game, groupSize);
+        size        /= groupSize;
 
-        print_groups(groups, currentSize, groupSize);
+        print_groups(groups, size, groupSize);
 
-        /* Fa giocare tutti i gruppi allo stesso gioco. */
-        winners = play_game(currentGame, games, groups, currentSize, groupSize, NULL);
+        // Fa giocare tutti i gruppi allo stesso gioco.
+        play_game(currentGame, groups, size, groupSize, NULL, game);
 
-        /* I player vincitori giocheranno ai giochi seguenti. */
-        currentPlayers = REALLOC_ARRAY(Player, currentPlayers, currentSize); CRASH_IF_NULL(currentPlayers)
+        print_winners(game);
 
-        /* Crea un mirror dei vincitori nei player correnti. */
-        for (i = 0; i < currentSize; ++i)
-        {
-            currentPlayers[i] = winners[i];
-        }
-
-        print_winners(currentPlayers, currentSize);
-
-        /* Aggiorna l'array di statuses impostando i player vivi ad: ALIVE. */
-        update_player_statuses(currentPlayers, currentSize, statuses, startSize);
-
-        // Aggiorna le varie statistiche.
-        update_totals(currentPlayers, currentSize, gameStatus);
-        incr_stats_winners(gameStatus, currentPlayers, currentSize, isFinal);
+        /* Aggiorna dati e statistiche dei profili in gioco. */
+        update_totals(game, PLAYER_STATUSES);
+        incr_stats(game, GAMES_WON);
 
         if (isFinal)
         {
-            gameStatus->playing = false;
-            print_winner(&winners[0]);
+            print_winner(game);
+
+            /* Aggiorna dati e statistiche dei profili in gioco. */
+            incr_stats(game, SPR1D_WON);
+            update_totals(game, PLAYING);
         }
 
-        ask_save_stats(gameStatus);
+        ask_save_stats(&game->status);
 
         /* Libera la memoria. */
-        FREE_MATRIX(i, currentSize, groups)
-        free(winners);
+        free(groups);
 
     } while (!isFinal);
 
     free(games);
-    free(statuses);
-    free(currentPlayers);
 }
 
 /**
- * Pulisci-schermo rudimentale.
+ * Incrementa le varie statistiche dei vincitori.
+ * @param game          Il gioco in corso.
+ * @param statsUpdate   La statistica da incrementare.
  */
-void clear_screen()
+void incr_stats(Game *game, StatsUpdate statsUpdate)
 {
-    println_wqt(EMPTY_STRING, CLEAR_SCREEN_LINES);
+    /*
+     * i        -> contatore.
+     *
+     * profile  -> valore temporaneo.
+     */
+    int i;
+
+    Profile *profile;
+
+    for (i = 0; i < game->status.totHumans; ++i)
+    {
+        profile = GET(game->status.profiles, i);
+
+        /* Se il profilo e' vivo, incrementa la statistica. */
+        if (game->status.playerStatuses[profile->identifier])
+        {
+            switch (statsUpdate)
+            {
+                case FINALS_PLAYED:
+                    profile->finalsPlayed++;
+                    break;
+                case SPR1D_WON:
+                    profile->spr1dWon++;
+                    break;
+                case SPR1D_PLAYED:
+                    profile->spr1dPlayed++;
+                    break;
+                case GAMES_WON:
+                    profile->gamesWon++;
+                    break;
+                case GAMES_PLAYED:
+                    profile->gamesPlayed++;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
 }
 
 /**
@@ -627,14 +647,10 @@ Games front_man_chooses(Games *gamesRemaining)
      * i            -> contatore.
      * allocSize    -> il numero di giochi che e' possibile scegliere.
      * allowed      -> i giochi che e' possibile scegliere.
-     *
-     * chosenGame   -> il gioco scelto.
      */
     int i;
     int allocSize   = 0;
-    int *allowed;
-
-    Games chosenGame;
+    int *allowed    = NULL;
 
     print_remaining_games(gamesRemaining);
 
@@ -656,11 +672,9 @@ Games front_man_chooses(Games *gamesRemaining)
         }
     }
 
-    chosenGame = ask_input_int(allowed, allocSize, LENGTH_ONE, false);
-
     free(allowed);
 
-    return chosenGame;
+    return ask_input_int(allowed, allocSize, LENGTH_ONE, false);
 }
 
 /**
@@ -668,6 +682,7 @@ Games front_man_chooses(Games *gamesRemaining)
  * @param allowed       Array di int ammessi in input.
  * @param allowedSize   Grandezza dell'array.
  * @param inputLength   Numero di caratteri ammessi in input.
+ * @param denyMinusThan Impedisce i numeri minori di esso di essere inseriti.
  * @return              Input inserito dall'utente
  */
 int ask_input_int(int *allowed, int allowedSize, int inputLength, int denyMinusThan)
@@ -853,6 +868,81 @@ char *ask_input_str(char *allowed, char *print)
 }
 
 /**
+ * Richiesta input di tipo stringa all'utente.
+ * @param allowed       Array di stringhe ammesse in input.
+ * @param print         Caratteri da stampare a video.
+ * @param maxLength     Il numero massimo di caratteri che e' possibile inserire.
+ * @return              Input inserito dall'utente
+ */
+char *ask_input_str_with_len(char *allowed, char *print, int maxLength)
+{
+    /*
+     * allocSize        -> lunghezza temporanea della stringa.
+     *
+     * slice            -> il carattere in lettura in input.
+     * action           -> l'input dell'utente.
+     *
+     * valueIsAllowed   -> indica se il valore inserito è consentito.
+     */
+    int allocSize;
+
+    char slice;
+    char *action = NULL;
+
+    Boolean valueIsAllowed;
+
+    do
+    {
+        allocSize   = 1;
+        slice       = '?';
+        action      = MALLOC_ARRAY(char, allocSize); CRASH_IF_NULL(action)
+
+        printf("Inserisci il %s:", print);
+
+        /* Legge un carattere dall'input sino a quando esso non sia il terminatore di stringa. */
+        while (slice != STR_TERM)
+        {
+            slice = getchar();
+
+            /* Il carattere newline indichera' il terminatore della stringa in input. */
+            if (slice == '\n')
+            {
+                slice = STR_TERM;
+            }
+
+            if (maxLength != 0 && allocSize == maxLength)
+            {
+                slice = STR_TERM;
+            }
+            else
+            {
+                /* Per ogni nuovo carattere, ridimensiono la stringa che accogliera' l'input. */
+                if (allocSize > 1)
+                {
+                    action = REALLOC_ARRAY(char, action, allocSize); CRASH_IF_NULL(action)
+                }
+
+                action[allocSize - 1] = slice;
+                allocSize++;
+            }
+
+        }
+
+        // Controlla se i caratteri inseriti sono consentiti.
+        valueIsAllowed = check_characters(action, allowed);
+
+        if (!valueIsAllowed)
+        {
+            print_err(ILLEGAL_CHARS);
+            free(action);
+        }
+
+    } while (!valueIsAllowed);
+
+    return action;
+}
+
+/**
  * Stampa a video un menu' e assegna a ogni campo un numero.
  * @param text  I testi da stampare.
  * @param rows  Il numero di campi disponibili.
@@ -905,7 +995,7 @@ int ask_menu_choice(char *text[], int rows, int len)
  * @param numProfiles   Il numero di profili.
  * @return              Il numero corrispondente all'index profilo selezionato.
  */
-int *ask_which_profile_plays(GameStatus *gameStatus)
+void ask_which_profile_plays(Game *game)
 {
     /*
      * allowedKeep      -> i valori ammessi in input.
@@ -922,12 +1012,12 @@ int *ask_which_profile_plays(GameStatus *gameStatus)
     int i;
     int chosenProfile;
     int selectedProfiles    = 0;
-    int numProfiles         = gameStatus->numProfiles;
+    int numProfiles         = game->status.numProfiles;
     int *allowed            = MALLOC_ARRAY(int, numProfiles); CRASH_IF_NULL(allowed)
 
     Boolean keepInsert;
 
-    Profile *profiles = *gameStatus->profiles;
+    Profile *profiles = *game->status.profiles;
 
     /* Inizializza l'array. */
     for (i = 0; i < numProfiles; ++i)
@@ -958,12 +1048,12 @@ int *ask_which_profile_plays(GameStatus *gameStatus)
 
             print_fiorellini();
 
-            /* Chiede all'utente quale profilo far giocare e lo rende "used". */
+            /* Chiede all'utente quale profilo far giocare e lo rende "used", inserendolo poi in gioco come player. */
             chosenProfile = ask_input_int(allowed, numProfiles, LENGTH_MAX, false);
             allowed[chosenProfile] = USED_VALUE;
 
-            print_profile_name(&profiles[chosenProfile]);
-            println("e' stato scelto per scendere in battaglia!");
+            update_totals(game, TOT_PROFILES);
+            insert_player_custom(game, &profiles[chosenProfile], true);
 
             /* Se e' ancora possibile, chiede all'utente se fermarsi o scegliere altri profili. */
             if (selectedProfiles != numProfiles)
@@ -975,7 +1065,7 @@ int *ask_which_profile_plays(GameStatus *gameStatus)
 
     } while (keepInsert);
 
-    return allowed;
+    free(allowed);
 }
 
 /**
@@ -1015,5 +1105,128 @@ Boolean is_human(Player *player)
  */
 Boolean is_front_man(Player *player)
 {
-    return player->name != NULL && strcmp(player->name, FRONTMAN_NAME) == 0;
+    return is_human(player) && strcmp(player->name, FRONTMAN_NAME) == 0;
+}
+
+/**
+ * Inizializzatore del gioco.
+ * @return Il gioco parzialmente inizializzato.
+ */
+Game init_game()
+{
+    Game game = { };
+    Status status = { };
+
+    status.humanIds         = MALLOC_ARRAY(int, LENGTH_ONE); CRASH_IF_NULL(status.humanIds)
+    status.profiles         = MALLOC_ARRAY(Profile *, LENGTH_ONE); CRASH_IF_NULL(status.profiles)
+    game.status = status;
+
+    game.players    = MALLOC_ARRAY(Player *, LENGTH_ONE); CRASH_IF_NULL(game.players)
+    *game.players   = MALLOC_ARRAY(Player, LENGTH_ONE); CRASH_IF_NULL(*game.players)
+
+    return game;
+}
+
+/**
+ * Aggiorna i dati.
+ * @param game      Il gioco in corso.
+ * @param toUpdate  La categoria della quale aggiornare i dati.
+ */
+void update_totals(Game *game, ToUpdate toUpdate)
+{
+    /*
+     * i, j, k  -> contatori e valori temporanei.
+     *
+     * isAlive  -> indica se il player e' vivo (true) o meno (false);
+     *
+     * status   -> lo stato del gioco in corso.
+     * statuses -> gli stati dei giocatori.
+     *
+     * temp     -> valore temporaneo.
+     */
+    int i, j, k;
+
+    Boolean isAlive;
+
+    Status *status  = &game->status;
+    int *statuses   = status->playerStatuses;
+
+    Profile temp;
+
+    switch (toUpdate)
+    {
+        case PLAYING:
+            status->playing = !status->playing;
+
+            /* Se il gioco e' terminato, imposta gli id di tutti i profili a NOT_PLAYING_ID. */
+            if (!status->playing)
+            {
+                for (i = 0; i < status->numProfiles; ++i)
+                {
+                    GET(status->profiles, i)->identifier = NOT_PLAYING_ID;
+                }
+            }
+            break;
+        case NUM_PROFILES:
+            status->numProfiles++;
+            break;
+        case TOT_PLAYERS:
+            status->totPlayers++;
+            break;
+        case TOT_PROFILES:
+            status->totHumans++;
+            break;
+        case STARTUP:
+            /* Inizializza componenti del gioco in corso. */
+            status->playerStatuses  = MALLOC_ARRAY(int, status->totPlayers); CRASH_IF_NULL(status->playerStatuses)
+            status->humanIds        = REALLOC_ARRAY(int, status->humanIds, status->totHumans); CRASH_IF_NULL(status->humanIds)
+
+            selection_sort_profiles(game);
+
+            /* Popola l'indice dei profili con i profili che sono in gioco. */
+            for (i = 0, k = 0; i < status->numProfiles; ++i, ++k)
+            {
+                j = GET(status->profiles, i)->identifier;
+
+                if (j != NOT_PLAYING_ID)
+                {
+                    status->humanIds[k] = j;
+                }
+                else
+                {
+                    --k;
+                }
+            }
+
+            update_totals(game, PLAYING);
+            break;
+        case PLAYER_STATUSES:
+            game->alivePlayers  = 0;
+            game->aliveHumans   = 0;
+
+            /* Conta il numero di player in vita e aggiorna lo statuses. */
+            for (i = 0; i < status->totPlayers; ++i)
+            {
+                isAlive = (*game->players)[i].alive;
+
+                if (isAlive)
+                {
+                    game->alivePlayers++;
+                }
+
+                statuses[i] = isAlive;
+            }
+
+            /* Conta il numero di profili in vita. */
+            for (i = 0; i < status->totHumans; ++i)
+            {
+                if (statuses[(*status->profiles)[i].identifier])
+                {
+                    game->aliveHumans++;
+                }
+            }
+            break;
+        default:
+            break;
+    }
 }

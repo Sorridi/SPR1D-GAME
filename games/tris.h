@@ -28,6 +28,6 @@ typedef enum
     EMPTY, O, X
 } Pawn;
 
-Player *play_tris(Player *players);
+Player *play_tris(Group group);
 
 #endif //FINAL_TRIS_H

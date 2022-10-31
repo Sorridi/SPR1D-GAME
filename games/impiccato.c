@@ -356,10 +356,10 @@ void print_unhidden_phrase(Phrase *phrase)
 
 /**
  * Gioca a impiccato.
- * @param players   I player partecipanti.
+ * @param group     Il gruppo di players partecipanti.
  * @return          Il player vincitore del match.
  */
-Player* play_impiccato(Player *players)
+Player* play_impiccato(Group group)
 {
     /*
      * i                -> contatore.
@@ -397,7 +397,7 @@ Player* play_impiccato(Player *players)
     Boolean isLastPlayer;
 
     FileDictionary fileDictionary = createEmptyDictionary();
-    readDictionary(&fileDictionary);
+    read_dictionary(&fileDictionary);
 
     Phrase phrase = createEmptyPhrase(&fileDictionary);
 
@@ -406,7 +406,7 @@ Player* play_impiccato(Player *players)
         /* Fa giocare ogni player fino a quando il gioco non termina */
         for (i = 0; i < QUAD_GAME; ++i)
         {
-            player          = &players[i];
+            player          = &group.players[i];
             currentScore    = playerScores[i];
 
             if (currentScore != MAX_TRIES)
@@ -437,7 +437,7 @@ Player* play_impiccato(Player *players)
                             }
                             else
                             {
-                                alivePlayer = &players[j];
+                                alivePlayer = &group.players[j];
                             }
                         }
 

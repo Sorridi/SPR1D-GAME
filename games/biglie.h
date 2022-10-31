@@ -10,6 +10,6 @@
 // Puntata minima di biglie.
 #define MIN_BET 1
 
-Player *play_biglie(Player *players);
+Player *play_biglie(Group group);
 
 #endif //FINAL_BIGLIE_H
